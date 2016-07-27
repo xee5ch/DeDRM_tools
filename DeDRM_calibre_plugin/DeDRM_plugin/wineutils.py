@@ -9,12 +9,32 @@ __license__ = 'GPL v3'
 import os, sys, re, hashlib
 from calibre_plugins.dedrm.__init__ import PLUGIN_NAME, PLUGIN_VERSION
 
+# Wrap a stream so that output gets flushed immediately
+# and also make sure that any unicode strings get
+# encoded using "replace" before writing them.
+class SafeUnbuffered:
+    def __init__(self, stream):
+        self.stream = stream
+        self.encoding = stream.encoding
+        if self.encoding == None:
+            self.encoding = "utf-8"
+    def write(self, data):
+        if isinstance(data,unicode):
+            data = data.encode(self.encoding,"replace")
+        self.stream.write(data)
+        self.stream.flush()
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
 def WineGetKeys(scriptpath, extension, wineprefix=""):
     import subprocess
     from subprocess import Popen, PIPE, STDOUT
 
     import subasyncio
     from subasyncio import Process
+
+    sys.stdout=SafeUnbuffered(sys.stdout)
+    sys.stderr=SafeUnbuffered(sys.stderr)
 
     if extension == u".k4i":
         import json
